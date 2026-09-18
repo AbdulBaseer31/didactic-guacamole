@@ -1,0 +1,10 @@
+name: youtube_lyric
+goal: >
+  Open the transcript, find the line containing 'never gonna give you up',
+  and click it to jump the player there.
+start_url: https://www.youtube.com/watch?v=dQw4w9WgXcQ&hl=en
+policy:
+  domain_allowlist: [youtube.com, www.youtube.com]
+budgets:
+  max_steps: 15
+secrets: {}

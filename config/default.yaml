@@ -1,0 +1,26 @@
+browser:
+  headless: false
+  viewport: {width: 1280, height: 800}
+  locale: en-US
+  timezone: Asia/Kolkata
+  slow_mo_ms: 120
+
+budgets:
+  max_steps: 25
+  max_wall_clock_s: 300
+  max_total_input_tokens: 400000
+  step_timeout_s: 30
+
+stabilization:
+  quiet_ms: 400
+  max_wait_ms: 6000
+  post_action_settle_ms: 150
+
+perception:
+  max_elements: 120
+  screenshot_scale: 0.75
+
+policy:
+  domain_allowlist: []
+  blocked_classes: [payment, destructive, external_comms, account_change]
+  allow_dialog_accept: false

@@ -1,0 +1,13 @@
+name: saucedemo_checkout
+goal: >
+  Log in as standard_user with password secret_sauce, add the
+  Sauce Labs Backpack to the cart, and complete checkout with
+  first name Ada, last name Lovelace, postal code 500001.
+  Finish when you see the order confirmation.
+start_url: https://www.saucedemo.com
+policy:
+  domain_allowlist: [saucedemo.com]
+budgets:
+  max_steps: 22
+secrets:
+  SAUCE_PASSWORD: secret_sauce
