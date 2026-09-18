@@ -5,6 +5,61 @@ from typing import Any, Literal, Optional
 from pydantic import BaseModel, Field
 
 
+class BrowserConfig(BaseModel):
+    headless: bool = False
+    viewport: dict[str, int] = Field(default_factory=lambda: {"width": 1280, "height": 800})
+    locale: str = "en-US"
+    timezone: str = "Asia/Kolkata"
+    slow_mo_ms: int = 120
+
+
+class StabilizationConfig(BaseModel):
+    quiet_ms: int = 400
+    max_wait_ms: int = 6000
+    post_action_settle_ms: int = 150
+
+
+class PerceptionConfig(BaseModel):
+    max_elements: int = 120
+    screenshot_scale: float = 0.75
+
+
+class PolicyConfig(BaseModel):
+    domain_allowlist: list[str] = Field(default_factory=list)
+    blocked_classes: list[str] = Field(default_factory=lambda: ["payment", "destructive", "external_comms", "account_change"])
+    allow_dialog_accept: bool = False
+
+
+class BudgetsConfig(BaseModel):
+    max_steps: int = 25
+    max_wall_clock_s: int = 300
+    max_total_input_tokens: int = 400000
+    step_timeout_s: int = 30
+
+
+class Profile(BaseModel):
+    name: str
+    model: str
+    api_key: str
+
+
+class Scenario(BaseModel):
+    name: str
+    goal: str
+    start_url: str
+    policy: Optional[PolicyConfig] = None
+    budgets: Optional[BudgetsConfig] = None
+    secrets: dict[str, str] = Field(default_factory=dict)
+
+
+class Config(BaseModel):
+    browser: BrowserConfig
+    budgets: BudgetsConfig
+    stabilization: StabilizationConfig
+    perception: PerceptionConfig
+    policy: PolicyConfig
+
+
 class Element(BaseModel):
     uix: int
     frame_id: str
@@ -114,3 +169,11 @@ class RunManifest(BaseModel):
     outcome: Optional[str] = None
     total_tokens: int = 0
     step_count: int = 0
+
+
+class RunConfig(BaseModel):
+    goal: str
+    start_url: str
+    profile: Profile
+    config: Config
+    scenario: Scenario | None = None

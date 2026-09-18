@@ -5,7 +5,6 @@ from typing import Any
 
 import yaml
 from dotenv import load_dotenv
-from pydantic import ValidationError
 
 from .types import (
     BrowserConfig,
@@ -18,9 +17,7 @@ from .types import (
     StabilizationConfig,
 )
 
-
 load_dotenv()
-
 
 DEFAULT_CONFIG_PATH = Path(__file__).parent.parent / "config" / "default.yaml"
 
