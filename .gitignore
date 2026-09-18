@@ -3,8 +3,11 @@
 runs/
 __pycache__/
 *.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+.DS_Store
 .venv/
 venv/
-*.lock
-.pytest_cache/
-.DS_Store
+*.lock.txt

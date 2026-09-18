@@ -1,6 +1,7 @@
 from __future__ import annotations
+
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal, Optional
 from pydantic import BaseModel, Field
 
 
@@ -10,12 +11,12 @@ class Element(BaseModel):
     role: str
     name: str
     tag: str
-    input_type: str | None = None
+    input_type: Optional[str] = None
     disabled: bool
-    checked: bool | None = None
-    expanded: str | None = None
-    value: str | None = None
-    href: str | None = None
+    checked: Optional[bool] = None
+    expanded: Optional[str] = None
+    value: Optional[str] = None
+    href: Optional[str] = None
     path: str
     box: tuple[int, int, int, int]
 
@@ -45,27 +46,28 @@ class FindingDraft(BaseModel):
     category: Literal["ux_friction", "accessibility", "error_state", "performance"]
     severity: Literal["low", "medium", "high"]
     description: str
-    element_name: str | None = None
+    element_name: Optional[str] = None
+    evidence_refs: list[str] = Field(default_factory=list)
 
 
 class ProposedAction(BaseModel):
     type: Literal["click", "type", "select", "hover", "scroll", "press", "goto", "finish"]
-    uix: int | None = None
-    value: str | None = None
-    key: str | None = None
-    direction: Literal["down", "up"] | None = None
-    url: str | None = None
-    reasoning: str = Field(max_length=200)
-    success: bool | None = None
+    uix: Optional[int] = None
+    value: Optional[str] = None
+    key: Optional[str] = None
+    direction: Optional[Literal["down", "up"]] = None
+    url: Optional[str] = None
+    reasoning: str
+    success: Optional[bool] = None
     findings: list[FindingDraft] = Field(default_factory=list)
 
 
 class ValidatedAction(BaseModel):
     action: ProposedAction
-    descriptor: TargetDescriptor | None = None
+    descriptor: Optional[TargetDescriptor] = None
     action_class: str
     decision: Literal["allow", "block"]
-    block_reason: str | None = None
+    block_reason: Optional[str] = None
     resolver_confidence: float
     candidates_considered: int
 
@@ -76,8 +78,8 @@ class StepRecord(BaseModel):
     proposed: ProposedAction
     validated: ValidatedAction
     executed: bool
-    error: str | None = None
-    stabilization: dict
+    error: Optional[str] = None
+    stabilization: dict[str, Any]
     before_png: str
     marked_png: str
     after_png: str
@@ -91,68 +93,24 @@ class Finding(BaseModel):
     severity: Literal["low", "medium", "high"]
     description: str
     step: int
-    element_name: str | None = None
+    element_name: Optional[str] = None
     evidence_refs: list[str] = Field(default_factory=list)
 
 
-class BrowserConfig(BaseModel):
-    headless: bool
+class RunManifest(BaseModel):
+    run_id: str
+    goal: str
+    start_url: str
+    profile_name: str
+    model_id: str
+    browser_version: str
     viewport: dict[str, int]
     locale: str
     timezone: str
-    slow_mo_ms: int
-
-
-class BudgetsConfig(BaseModel):
-    max_steps: int
-    max_wall_clock_s: int
-    max_total_input_tokens: int
-    step_timeout_s: int
-
-
-class StabilizationConfig(BaseModel):
-    quiet_ms: int
-    max_wait_ms: int
-    post_action_settle_ms: int
-
-
-class PerceptionConfig(BaseModel):
-    max_elements: int
-    screenshot_scale: float
-
-
-class PolicyConfig(BaseModel):
-    domain_allowlist: list[str] = Field(default_factory=list)
-    blocked_classes: list[str] = Field(default_factory=list)
-    allow_dialog_accept: bool = False
-
-
-class Config(BaseModel):
-    browser: BrowserConfig
-    budgets: BudgetsConfig
-    stabilization: StabilizationConfig
-    perception: PerceptionConfig
-    policy: PolicyConfig
-
-
-class Scenario(BaseModel):
-    name: str
-    goal: str
-    start_url: str
-    policy: PolicyConfig | None = None
-    budgets: BudgetsConfig | None = None
-    secrets: dict[str, str] = Field(default_factory=dict)
-
-
-class Profile(BaseModel):
-    name: str
-    model: str
-    api_key: str
-
-
-class RunConfig(BaseModel):
-    goal: str
-    start_url: str
-    profile: Profile
-    config: Config
-    scenario: Scenario | None = None
+    config_snapshot: dict[str, Any]
+    policy_snapshot: dict[str, Any]
+    start_time: datetime
+    end_time: Optional[datetime] = None
+    outcome: Optional[str] = None
+    total_tokens: int = 0
+    step_count: int = 0

@@ -1,6 +1,8 @@
 browser:
   headless: false
-  viewport: {width: 1280, height: 800}
+  viewport:
+    width: 1280
+    height: 800
   locale: en-US
   timezone: Asia/Kolkata
   slow_mo_ms: 120
@@ -22,5 +24,9 @@ perception:
 
 policy:
   domain_allowlist: []
-  blocked_classes: [payment, destructive, external_comms, account_change]
+  blocked_classes:
+    - payment
+    - destructive
+    - external_comms
+    - account_change
   allow_dialog_accept: false
