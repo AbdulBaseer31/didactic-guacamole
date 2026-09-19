@@ -21,16 +21,13 @@ Open .env file and add gemini api key in api key
 
 ```bash
 # Commerce checkout (saucedemo)
-python -m autopilot run --scenario config/scenarios/saucedemo.yaml --profile primary
+python -m autopilot run --scenario config/scenarios/saucedemo.yaml --profile primary --live
 
 # Search & navigate (DuckDuckGo -> playwright.dev)
-python -m autopilot run --scenario config/scenarios/search.yaml --profile primary
+python -m autopilot run --scenario config/scenarios/search.yaml --profile primary --live
 
 # YouTube transcript (lyric jump)
-python -m autopilot run --scenario config/scenarios/youtube.yaml --profile primary
-
-# Validate API key only
-python -m autopilot --validate-only --profile primary --profile primary
+python -m autopilot run --scenario config/scenarios/youtube.yaml --profile primary --live
 
 #If you want to use Interactive
 python -m autopilot interactive
