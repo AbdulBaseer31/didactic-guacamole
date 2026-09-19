@@ -1,0 +1,206 @@
+================================================================================
+FRONTEND DASHBOARD SPECIFICATION - AUTONOMOUS WEB JOURNEY AGENT
+================================================================================
+
+PART 1: PROJECT OVERVIEW & SCOPE
+================================================================================
+
+1.1 Purpose
+-----------
+This document defines the complete specification for a web-based dashboard frontend
+for the "Autopilot" autonomous web journey agent. The dashboard serves as the
+primary human interface for selecting, executing, monitoring, and reviewing
+automated test scenarios.
+
+1.2 Current Test Suites (Dynamic Discovery)
+--------------------------------------------
+The dashboard MUST dynamically discover test suites from the filesystem at:
+    config/scenarios/*.yaml
+
+Currently detected suites (as of specification date):
+    1. saucedemo_checkout      - E-commerce checkout flow on saucedemo.com
+    2. search_and_navigate     - Search Playwright docs on DuckDuckGo, navigate to playwright.dev
+    3. youtube_transcript      - Find "never gonna give you up" in YouTube transcript and jump player
+
+The dashboard MUST NOT hardcode these three suites. It must scan the directory
+at runtime and present whatever YAML scenario files exist.
+
+1.3 Technology Stack
+---------------------
+- Frontend: Vanilla HTML5, CSS3, ES6+ JavaScript (no frameworks)
+- Backend: Python FastAPI (existing autopilot CLI, wrapped as API)
+- Data Storage: Local filesystem (runs/ directory with manifest.json, findings.json, report.html, trace.jsonl, step screenshots)
+- Communication: REST API + Server-Sent Events (SSE) for real-time updates
+- Validation: Custom JS validation script (validate-dashboard.js)
+
+1.4 Target Audience
+--------------------
+- Primary: QA Engineers, Developers running automated journeys
+- Secondary: Product Managers, Stakeholders reviewing test results
+- Tertiary: Non-technical users who need to understand "what happened" in plain English
+
+1.5 Key Design Principle: Layman-Friendly Language
+-----------------------------------------------------
+ALL technical terminal output, log messages, and system events MUST be translated
+into plain English. Examples:
+    ❌ "Loading UX page, perceiving DOM, resolving uix-42"
+    ✅ "Opening the login page and reading what's on screen"
+    
+    ❌ "Policy gate blocked action class 'payment'"
+    ✅ "The system prevented entering payment details (not allowed in test mode)"
+    
+    ❌ "Stuck loop detected, same state hash 5x"
+    ✅ "The test got stuck repeating the same action - stopped automatically"
+
+1.6 Local-Only Storage
+------------------------
+All run artifacts - report.html, manifest.json, findings.json, trace.jsonl, and every
+step screenshot - live exclusively under runs/<run_id>/ on the local filesystem. There
+is no database and no external/cloud service involved anywhere in this system. The
+dashboard backend's job is limited to reading and writing that directory tree (plus
+config/scenarios/*.yaml) - it must never proxy data to, or depend on, anything outside
+the local machine. A run's history is only as durable as the runs/ folder itself.
+
+1.7 Dashboard Validation Script Requirements (validate-dashboard.js)
+------------------------------------------------------------------------
+The frontend is plain HTML/CSS/JS with no build step, so a standalone Node (or
+browser-console-runnable) validation script MUST exist to catch regressions before
+they ship. At minimum it must check, per page (#/, #/run/new, #/run/{run_id},
+#/run/{run_id}/report, #/history, #/settings):
+    1. Valid HTML structure - no unclosed tags, no duplicate IDs, a single <main>.
+    2. Presence of every DOM hook the page's own JS queries for (e.g. data-testid /
+       id attributes referenced in event listeners or renderers) - a missing hook
+       should fail loudly rather than silently no-op.
+    3. No external framework or CDN <script> tags anywhere - vanilla-only per 1.3.
+       (Google Fonts stylesheets are the sole allowed external <link>, if used.)
+    4. Basic accessibility: every <img> has alt text, every interactive control
+       (button, input, [role=button], etc.) has an accessible name (visible text,
+       aria-label, or associated <label>), and color contrast isn't checked
+       automatically but must be spot-checked against WCAG AA manually.
+    5. Every technical string surfaced to the user passes through the layman-language
+       translation layer described in 1.5 - the script should flag raw technical
+       tokens (uix, DOM, hash, stuck_loop, etc.) appearing directly in rendered text.
+The script must print a clear PASS/FAIL per page and a non-zero exit code (or a
+visibly failing console assertion) on any failure, so it can gate a manual review
+before the dashboard is considered done.
+
+
+PART 2: ARCHITECTURE & DATA FLOW
+================================================================================
+
+2.1 System Components
+----------------------
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        DASHBOARD ARCHITECTURE                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   ┌──────────────┐     HTTP/REST      ┌──────────────┐     subprocess     │
+│   │   Browser    │ ◄─────────────────► │  FastAPI     │ ◄────────────────┤
+│   │  (Frontend)  │     + SSE          │   Backend    │     (CLI)         │
+│   └──────────────┘                    └──────────────┘                  │
+│         │                                    │                           │
+│         │         ┌──────────────────────────┘                           │
+│         ▼         ▼                                                      │
+│   ┌────────────────────────┐                                             │
+│   │   Local Filesystem     │                                             │
+│   │   runs/                │                                             │
+│   │   config/scenarios/    │                                             │
+│   └────────────────────────┘                                             │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+2.2 Backend API Endpoints (to be implemented)
+----------------------------------------------
+GET    /api/scenarios           - List all available scenarios (dynamic scan)
+GET    /api/scenarios/{name}    - Get scenario details (goal, start_url, budgets, policy)
+POST   /api/runs                - Start a new run (body: {scenario, profile})
+GET    /api/runs                - List all historical runs with summary
+GET    /api/runs/{run_id}       - Get run manifest + findings + step summary
+GET    /api/runs/{run_id}/report - Serve the generated report.html
+GET    /api/runs/{run_id}/trace  - Stream trace.jsonl for live log panel
+GET    /api/runs/{run_id}/events - SSE endpoint for real-time step updates
+POST   /api/runs/{run_id}/stop  - Stop a running journey
+GET    /api/health              - Health check (verify CLI, profiles, browser)
+
+2.3 Frontend Pages (Single Page Application with Hash Routing)
+---------------------------------------------------------------
+#/                    - Home/Dashboard: Scenario cards, recent runs, quick stats
+#/run/new             - New Run Wizard: Select scenario → Configure → Confirm → Live view
+#/run/{run_id}        - Run Detail: Live log, step timeline, findings, screenshots
+#/run/{run_id}/report - Full Report Viewer (embedded report.html or custom view)
+#/history             - Run History: Filterable, searchable table of all runs
+#/settings            - Profiles, API keys, default budgets, browser config
+
+2.4 Real-Time Data Flow (Live Run)
+-----------------------------------
+1. User clicks "Start Run" on wizard
+2. Frontend POSTs to /api/runs → Backend spawns CLI subprocess
+3. Backend returns run_id immediately
+4. Frontend navigates to #/run/{run_id} and opens SSE to /api/runs/{run_id}/events
+5. Backend streams events as CLI produces them:
+   - run_started {run_id, scenario, goal, start_url}
+   - step_started {step, action, target, reasoning_plain}
+   - step_completed {step, transition, executed, duration_ms, screenshots}
+   - finding_detected {finding}
+   - run_finished {outcome, summary}
+6. Frontend updates UI in real-time (no polling)
+7. On completion, full report available at /api/runs/{run_id}/report
+
+Principle: the live run view (#/run/{run_id}) MUST render as an actual live-updating
+webpage - a real step timeline, real status badges, real screenshots appearing as they
+land - not a raw console/log dump piped into a <pre> tag. Anyone watching should see
+the same kind of page they'd see in the final report, just filling in as the run
+progresses, with every message already passed through the layman-language layer in 1.5.
+
+2.5 Data Models (Frontend TypeScript-style interfaces for clarity)
+-------------------------------------------------------------------
+interface Scenario {
+  name: string;           // filename without .yaml
+  display_name: string;   // human-readable from YAML 'name' field
+  goal: string;           // from YAML
+  start_url: string;      // from YAML
+  max_steps: number;      // from budgets
+  domain_allowlist: string[];
+  has_secrets: boolean;
+}
+
+interface RunSummary {
+  run_id: string;
+  scenario_name: string;
+  scenario_display: string;
+  goal: string;
+  start_url: string;
+  profile: string;
+  model: string;
+  status: 'running' | 'success' | 'failed' | 'stuck_loop' | 'budget_exhausted' | 'blocked';
+  start_time: string;     // ISO 8601
+  end_time?: string;
+  duration_seconds?: number;
+  steps_completed: number;
+  steps_total: number;
+  findings_count: { high: number; medium: number; low: number };
+  outcome: string;        // human-readable outcome
+}
+
+interface StepEvent {
+  step: number;
+  action: string;         // 'click', 'type', 'navigate', 'wait', 'finish'
+  target: string;         // human-readable element description
+  reasoning_plain: string; // LAYMAN translation of planner reasoning
+  transition: 'url_change' | 'dom_change' | 'no_change';
+  executed: boolean;
+  blocked_reason?: string; // LAYMAN translation
+  duration_ms: number;
+  screenshots: { before: string; marked: string; after: string };
+  url: string;
+  page_title: string;
+}
+
+interface Finding {
+  finding_id: string;
+  category: 'ux_friction' | 'accessibility' | 'error_state' | 'performance';
+  severity: 'high' | 'medium' | 'low';
+  description_plain: string; // LAYMAN translation
+  step: number;
+  evidence_refs: string[];
+}

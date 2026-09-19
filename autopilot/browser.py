@@ -21,15 +21,35 @@ class BrowserManager:
 
     def __enter__(self):
         self.playwright = sync_playwright().start()
+
+        launch_args = []
+        context_kwargs: dict[str, Any] = {
+            "locale": self.config.browser.locale,
+            "timezone_id": self.config.browser.timezone,
+        }
+
+        if self.config.browser.headless:
+            # Headless has no real OS window, so an emulated viewport is free.
+            context_kwargs["viewport"] = self.config.browser.viewport
+        else:
+            # In headed mode, an emulated `viewport` makes Chromium's actual OS
+            # window get resized via CDP every time Playwright reasserts the
+            # emulated device metrics (e.g. after each DOM/state capture) -
+            # visible as the window rapidly minimizing/maximizing. Instead, set
+            # the real window size once at launch and let the page render at
+            # whatever size that window actually is (`no_viewport=True`).
+            width = self.config.browser.viewport.get("width", 1280)
+            height = self.config.browser.viewport.get("height", 800)
+            launch_args.append(f"--window-size={width},{height}")
+            launch_args.append("--window-position=0,0")
+            context_kwargs["no_viewport"] = True
+
         self.browser = self.playwright.chromium.launch(
             headless=self.config.browser.headless,
             slow_mo=self.config.browser.slow_mo_ms,
+            args=launch_args,
         )
-        self.context = self.browser.new_context(
-            viewport=self.config.browser.viewport,
-            locale=self.config.browser.locale,
-            timezone_id=self.config.browser.timezone,
-        )
+        self.context = self.browser.new_context(**context_kwargs)
         self._setup_dialog_handler()
         self._setup_popup_handler()
         self._inject_observer_script()
