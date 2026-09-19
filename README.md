@@ -5,13 +5,18 @@ Autonomous web journey agent with deterministic safety gate and evidence trail.
 ## Quick Start
 
 ```bash
-python -m venv .venv 
+git init
+git clone https://github.com/AbdulBaseer31/didactic-guacamole
+cd didactic-guacamole
+python -m venv .venv
+set-exectionpolicy unrestricted -scope process
 .venv/scripts/activate
 pip install -r requirements.txt
 playwright install chromium
-cp .env.example .env  # add your Anthropic API keys
+cp .env.example .env 
 ```
 
+Open .env file and add gemini api key in api key
 ## Run Demo
 
 ```bash
@@ -26,6 +31,13 @@ python -m autopilot run --scenario config/scenarios/youtube.yaml --profile prima
 
 # Validate API key only
 python -m autopilot --validate-only --profile primary --profile primary
+
+#If you want to use Interactive
+python -m autopilot interactive
+
+#Here, input your data
+
+#Here set primary (even if it says claude
 ```
 
 ## Output
