@@ -1,11 +1,11 @@
 browser:
-  headless: false
+  headless: true
   viewport:
     width: 1280
     height: 800
   locale: en-US
   timezone: Asia/Kolkata
-  slow_mo_ms: 120
+  slow_mo_ms: 0
 
 budgets:
   max_steps: 25

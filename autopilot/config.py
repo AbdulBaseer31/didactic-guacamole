@@ -1,21 +1,76 @@
 from __future__ import annotations
+
 import os
+import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import yaml
 from dotenv import load_dotenv
+from pydantic import BaseModel, Field
 
-from .types import (
-    BrowserConfig,
-    BudgetsConfig,
-    Config,
-    PerceptionConfig,
-    PolicyConfig,
-    Profile,
-    Scenario,
-    StabilizationConfig,
-)
+
+# Load .env from project root
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+load_dotenv(PROJECT_ROOT / ".env")
+
+
+class BrowserConfig(BaseModel):
+    headless: bool = False
+    viewport: dict[str, int] = Field(default_factory=lambda: {"width": 1280, "height": 800})
+    locale: str = "en-US"
+    timezone: str = "Asia/Kolkata"
+    slow_mo_ms: int = 120
+
+
+class BudgetsConfig(BaseModel):
+    max_steps: int = 25
+    max_wall_clock_s: int = 300
+    max_total_input_tokens: int = 400000
+    step_timeout_s: int = 30
+
+
+class StabilizationConfig(BaseModel):
+    quiet_ms: int = 400
+    max_wait_ms: int = 6000
+    post_action_settle_ms: int = 150
+
+
+class PerceptionConfig(BaseModel):
+    max_elements: int = 120
+    screenshot_scale: float = 0.75
+
+
+class PolicyConfig(BaseModel):
+    domain_allowlist: list[str] = Field(default_factory=list)
+    blocked_classes: list[str] = Field(
+        default_factory=lambda: ["payment", "destructive", "external_comms", "account_change"]
+    )
+    allow_dialog_accept: bool = False
+
+
+class Profile(BaseModel):
+    name: str
+    model: str
+    api_key: str
+
+
+class Scenario(BaseModel):
+    name: str
+    goal: str
+    start_url: str
+    policy: Optional[PolicyConfig] = None
+    budgets: Optional[BudgetsConfig] = None
+    secrets: dict[str, str] = Field(default_factory=dict)
+
+
+class Config(BaseModel):
+    browser: BrowserConfig
+    budgets: BudgetsConfig
+    stabilization: StabilizationConfig
+    perception: PerceptionConfig
+    policy: PolicyConfig
+
 
 load_dotenv()
 
@@ -82,6 +137,12 @@ def merge_config(default: Config, scenario: Scenario | None) -> Config:
     )
 
 
+def load_config(default_path: Path, scenario_path: Path | None = None) -> Config:
+    default = load_default_config()
+    scenario = load_scenario(scenario_path) if scenario_path else None
+    return merge_config(default, scenario)
+
+
 def load_profiles() -> dict[str, Profile]:
     profiles: dict[str, Profile] = {}
 
@@ -95,7 +156,9 @@ def load_profiles() -> dict[str, Profile]:
     return profiles
 
 
-def select_profile(profile_name: str | None, profiles: dict[str, Profile]) -> Profile | None:
+def resolve_profile(profile_name: str | None) -> Profile | None:
+    profiles = load_profiles()
+
     if profile_name:
         if profile_name in profiles:
             return profiles[profile_name]
@@ -107,6 +170,14 @@ def select_profile(profile_name: str | None, profiles: dict[str, Profile]) -> Pr
 
     if len(profiles) == 1:
         return next(iter(profiles.values()))
+
+    # Non-interactive: auto-pick first profile instead of hanging
+    if not sys.stdin.isatty():
+        if profiles:
+            first = next(iter(profiles.values()))
+            print(f"Auto-selected profile (non-interactive): {first.name} ({first.model})")
+            return first
+        return None
 
     return None
 
@@ -134,7 +205,16 @@ def prompt_profile(profiles: dict[str, Profile]) -> Profile:
         print("Invalid choice, try again.")
 
 
-def validate_profile(profile: Profile) -> bool:
+def validate_api_key(profile: Profile | None) -> bool:
+    if not profile:
+        print("No API profiles configured. Set AUTOPILOT_KEY_<NAME> and AUTOPILOT_MODEL_<NAME> in .env")
+        return False
+
+    # Skip validation for placeholder keys (testing mode)
+    if profile.api_key.startswith("sk-ant-..."):
+        print(f"Validation SKIPPED (placeholder key): {profile.model} ({profile.name})")
+        return True
+
     from anthropic import Anthropic
 
     client = Anthropic(api_key=profile.api_key)
