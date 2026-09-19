@@ -232,7 +232,7 @@ def generate_report(
                 <div class="step-header">
                     <span class="step-number">{step['step']:03d}</span>
                     <span class="step-action">{step['action_type']}</span>
-                    <span class="step-target">{step['target_name'] or '—'}</span>
+                    <span class="step-target">{step['target_name'] or '-'}</span>
                     <span class="step-transition trans-{step['transition_class']}">{step['transition'].replace('_', ' ')}</span>
                     <span style="margin-left: auto; color: #888; font-size: 0.8rem; font-family: monospace;">{step['duration_ms']}ms</span>
                 </div>
@@ -274,5 +274,5 @@ def generate_report(
 """
     
     report_path = run_dir / "report.html"
-    report_path.write_text(html)
+    report_path.write_text(html, encoding="utf-8")
     return report_path

@@ -99,7 +99,7 @@ def finalize_run(
     # Write findings.json
     findings_path = run_dir / "findings.json"
     findings_data = [f.model_dump() for f in findings]
-    findings_path.write_text(json.dumps(findings_data, indent=2, default=str))
+    findings_path.write_text(json.dumps(findings_data, indent=2, default=str), encoding="utf-8")
     
     # Generate report
     report_path = generate_report(run_dir, manifest, step_records, findings, config, profile_name, model_id)
@@ -151,121 +151,130 @@ def execute_journey(
     prev_state_hash = obs.state_hash
     all_observations.append(obs)
 
-    for step in range(1, max_steps + 1):
-        if (time.time() - start_time) * 1000 > max_wall_clock_ms:
-            print(humanize_budget_exceeded() if humanize else "Wall clock budget exceeded")
-            evidence.finalize("budget_exhausted")
-            outcome = "budget_exhausted"
-            break
+    try:
+        for step in range(1, max_steps + 1):
+            if (time.time() - start_time) * 1000 > max_wall_clock_ms:
+                print(humanize_budget_exceeded() if humanize else "Wall clock budget exceeded")
+                evidence.finalize("budget_exhausted")
+                outcome = "budget_exhausted"
+                break
 
-        proposed = planner.propose_action(obs, goal)
+            proposed = planner.propose_action(obs, goal)
 
-        before_name, marked_name, after_name = perception.take_screenshots(step, run_dir, config.perception.screenshot_scale)
+            before_name, marked_name, after_name = perception.take_screenshots(step, run_dir, config.perception.screenshot_scale)
 
-        locator, descriptor, confidence, candidates = None, None, 0.0, 0
-        if proposed.uix is not None:
-            locator, descriptor, confidence, candidates = resolver.resolve(browser.page, proposed, obs)
+            locator, descriptor, confidence, candidates = None, None, 0.0, 0
+            if proposed.uix is not None:
+                locator, descriptor, confidence, candidates = resolver.resolve(browser.page, proposed, obs)
 
-        element = None
-        if proposed.uix is not None:
-            for el in obs.elements:
-                if el.uix == proposed.uix:
-                    element = el
-                    break
-        validated = policy_gate.validate(proposed, descriptor, element)
+            element = None
+            if proposed.uix is not None:
+                for el in obs.elements:
+                    if el.uix == proposed.uix:
+                        element = el
+                        break
+            validated = policy_gate.validate(proposed, descriptor, element)
 
-        executed = False
-        error = None
-        if validated.decision == "allow":
-            executed, error = executor.execute(browser.page, locator, proposed, element)
-            if executed:
-                executor.wait_for_quiet(browser)
-                executor.settle()
+            executed = False
+            error = None
+            if validated.decision == "allow":
+                executed, error = executor.execute(browser.page, locator, proposed, element)
+                if executed:
+                    executor.wait_for_quiet(browser)
+                    executor.settle()
+                else:
+                    error = error or "Execution failed"
             else:
-                error = error or "Execution failed"
-        else:
-            error = validated.block_reason or "Blocked by policy"
-            if not humanize:
-                print(f"  BLOCKED: {error}")
+                error = validated.block_reason or "Blocked by policy"
+                if not humanize:
+                    print(f"  BLOCKED: {error}")
 
-        after_obs = perception.capture_step_observation(step)
-        all_observations.append(after_obs)
+            after_obs = perception.capture_step_observation(step)
+            all_observations.append(after_obs)
 
-        browser.screenshot(run_dir / "steps" / after_name, config.perception.screenshot_scale)
-        browser.clear_marks()
+            browser.screenshot(run_dir / "steps" / after_name, config.perception.screenshot_scale)
+            browser.clear_marks()
 
-        if after_obs.url != obs.url:
-            transition = "url_change"
-        elif after_obs.state_hash != obs.state_hash:
-            transition = "dom_change"
-        else:
-            transition = "no_change"
-            no_change_count += 1
-        if transition != "no_change":
-            no_change_count = 0
-
-        if after_obs.state_hash == prev_state_hash:
-            same_state_count += 1
-        else:
-            same_state_count = 0
-        prev_state_hash = after_obs.state_hash
-
-        if same_state_count >= 3 and not humanize:
-            print(f"Stuck loop detected (same state {same_state_count}x)")
-        if same_state_count >= 5:
-            print(humanize_stuck_loop(same_state_count) if humanize else "Aborting: stuck loop")
-            evidence.finalize("stuck_loop")
-            outcome = "stuck_loop"
-            break
-
-        record = StepRecord(
-            step=step,
-            observation=obs,
-            proposed=proposed,
-            validated=validated,
-            executed=executed,
-            error=error,
-            stabilization={"state": "QUIESCENT", "wait_ms": 0, "mutations_seen": 0},
-            before_png=before_name,
-            marked_png=marked_name,
-            after_png=after_name,
-            duration_ms=0,
-            transition=transition,
-        )
-        evidence.add_step(record)
-        all_step_records.append(record)
-
-        if humanize:
-            print(humanize_step(record))
-        else:
-            print(f"Step {step}: {proposed.type} uix={proposed.uix} - {transition} - {'OK' if executed else 'BLOCKED/FAILED'}")
-
-        if proposed.type == "finish":
-            if proposed.success:
-                outcome = "success"
-                evidence.finalize("success")
+            if after_obs.url != obs.url:
+                transition = "url_change"
+            elif after_obs.state_hash != obs.state_hash:
+                transition = "dom_change"
             else:
-                outcome = "failed"
-                evidence.finalize("failed")
-            print(humanize_outcome(outcome) if humanize else ("Goal achieved!" if proposed.success else "Goal failed"))
-            break
+                transition = "no_change"
+                no_change_count += 1
+            if transition != "no_change":
+                no_change_count = 0
 
-        obs = after_obs
+            if after_obs.state_hash == prev_state_hash:
+                same_state_count += 1
+            else:
+                same_state_count = 0
+            prev_state_hash = after_obs.state_hash
 
-        if no_change_count >= 3:
-            finding = Finding(
-                finding_id=f"ux_friction_no_change_{step}",
-                category="ux_friction",
-                severity="medium",
-                description="Element appeared interactive but produced no observable change after 3 attempts",
+            if same_state_count >= 3 and not humanize:
+                print(f"Stuck loop detected (same state {same_state_count}x)")
+            if same_state_count >= 5:
+                print(humanize_stuck_loop(same_state_count) if humanize else "Aborting: stuck loop")
+                evidence.finalize("stuck_loop")
+                outcome = "stuck_loop"
+                break
+
+            record = StepRecord(
                 step=step,
-                evidence_refs=[before_name, after_name],
+                observation=obs,
+                proposed=proposed,
+                validated=validated,
+                executed=executed,
+                error=error,
+                stabilization={"state": "QUIESCENT", "wait_ms": 0, "mutations_seen": 0},
+                before_png=before_name,
+                marked_png=marked_name,
+                after_png=after_name,
+                duration_ms=0,
+                transition=transition,
             )
-            evidence.add_finding(finding)
-            no_change_count = 0
-    else:
-        evidence.finalize("max_steps_reached")
-        outcome = "max_steps_reached"
+            evidence.add_step(record)
+            all_step_records.append(record)
+
+            if humanize:
+                print(humanize_step(record))
+            else:
+                print(f"Step {step}: {proposed.type} uix={proposed.uix} - {transition} - {'OK' if executed else 'BLOCKED/FAILED'}")
+
+            if proposed.type == "finish":
+                if proposed.success:
+                    outcome = "success"
+                    evidence.finalize("success")
+                else:
+                    outcome = "failed"
+                    evidence.finalize("failed")
+                print(humanize_outcome(outcome) if humanize else ("Goal achieved!" if proposed.success else "Goal failed"))
+                break
+
+            obs = after_obs
+
+            if no_change_count >= 3:
+                finding = Finding(
+                    finding_id=f"ux_friction_no_change_{step}",
+                    category="ux_friction",
+                    severity="medium",
+                    description="Element appeared interactive but produced no observable change after 3 attempts",
+                    step=step,
+                    evidence_refs=[before_name, after_name],
+                )
+                evidence.add_finding(finding)
+                no_change_count = 0
+        else:
+            evidence.finalize("max_steps_reached")
+            outcome = "max_steps_reached"
+    except Exception as exc:
+        # Per MVP-BUILD-SPEC.md SS15: every abort path must still produce a
+        # report from whatever trace.jsonl already holds - never let an
+        # unexpected exception (Unicode or otherwise) propagate raw and skip
+        # report generation.
+        print(f"Step {step}: unexpected error, aborting run cleanly - {exc}")
+        outcome = "error"
+        evidence.finalize("error")
 
     return outcome, all_step_records, all_observations
 
@@ -401,11 +410,12 @@ def interactive_command(args: argparse.Namespace) -> int:
     timestamp = time.strftime("%Y%m%d-%H%M%S")
     scenario_path = Path("config/scenarios") / f"adhoc_{timestamp}_{slug}.yaml"
     scenario_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(scenario_path, "w") as f:
+    with open(scenario_path, "w", encoding="utf-8") as f:
         yaml.safe_dump(
             {"name": f"adhoc_{slug}", "goal": goal, "start_url": start_url, "secrets": {}},
             f,
             sort_keys=False,
+            allow_unicode=True,
         )
     print(f"Saved this as a scenario: {scenario_path}")
 

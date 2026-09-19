@@ -1,0 +1,4 @@
+name: adhoc_add-to-cart-a-pair-of-black-shoes-under
+goal: Add to cart a pair of black shoes under 2k on amazon
+start_url: https://www.amazon.in
+secrets: {}

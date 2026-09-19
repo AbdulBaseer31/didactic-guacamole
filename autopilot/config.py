@@ -28,7 +28,7 @@ DEFAULT_CONFIG_PATH = Path(__file__).parent.parent / "config" / "default.yaml"
 
 
 def load_default_config() -> Config:
-    with open(DEFAULT_CONFIG_PATH) as f:
+    with open(DEFAULT_CONFIG_PATH, encoding="utf-8") as f:
         data = yaml.safe_load(f)
 
     return Config(
@@ -41,7 +41,7 @@ def load_default_config() -> Config:
 
 
 def load_scenario(path: Path) -> Scenario:
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         data = yaml.safe_load(f)
 
     policy_data = data.get("policy", {})
@@ -141,19 +141,24 @@ def list_available_profiles(profiles: dict[str, Profile]) -> None:
 def prompt_profile(profiles: dict[str, Profile]) -> Profile:
     print("Which API profile?")
     list_available_profiles(profiles)
-    while True:
+    max_attempts = 5
+    for _attempt in range(max_attempts):
         try:
             choice = input("> ").strip()
-            if choice.isdigit():
-                idx = int(choice) - 1
-                if 0 <= idx < len(profiles):
-                    return list(profiles.values())[idx]
-            else:
-                if choice in profiles:
-                    return profiles[choice]
-        except (EOFError, KeyboardInterrupt):
-            pass
+        except EOFError:
+            break
+        except KeyboardInterrupt:
+            raise
+        if choice.isdigit():
+            idx = int(choice) - 1
+            if 0 <= idx < len(profiles):
+                return list(profiles.values())[idx]
+        elif choice in profiles:
+            return profiles[choice]
         print("Invalid choice, try again.")
+
+    print("No valid profile selected and no more input available; exiting.")
+    raise SystemExit(2)
 
 
 def validate_api_key(profile: Profile | None) -> bool:

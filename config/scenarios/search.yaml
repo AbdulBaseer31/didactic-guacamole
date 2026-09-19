@@ -2,9 +2,9 @@ name: search_and_navigate
 goal: >
   Search for the Playwright Python documentation and open the
   official playwright.dev site.
-start_url: https://duckduckgo.com
+start_url: https://google.com
 policy:
-  domain_allowlist: [duckduckgo.com, playwright.dev]
+  domain_allowlist: [google.com, playwright.dev]
 budgets:
-  max_steps: 10
+  max_steps: 20
 secrets: {}

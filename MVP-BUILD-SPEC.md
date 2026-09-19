@@ -1,3 +1,23 @@
+# PROBLEM STATEMENT:
+
+"Build an agentic, framework-agnostic, black-box UI/UX testing engine that accepts high-level natural language intent descriptions and autonomously navigates target applications to discover usability friction, map multi-path user journeys, detect UI/UX regressions, and audit accessibility tree structures. The system should treat the target application as a true black box relying on visible UI cues, layout context, or standard accessibility nodes rather than proprietary test hooks or embedded SDKs.
+
+
+
+Intent-Based Action: Autonomous navigation driven entirely by natural language intent without pre-scripted steps.
+
+Multi-Path Exploration: Actively discovering alternate routes, redundant loops, and dead ends.
+
+UX Friction and Regression Detection: Identifying usability bottlenecks during execution and surfacing regressions between application versions.
+
+Accessibility Verification: Auditing standard accessibility tree nodes for missing labels, ARIA roles, and keyboard focus order.
+
+Zero Application Instrumentation: Operating strictly as a black box with no source code access, hardcoded DOM selectors, embedded SDKs, or proprietary hooks.
+
+Visual Tracing & Audit Reporting: Logging every action step-by-step with visual screenshots and compiling findings into a comprehensive audit report.
+
+Target Scope: A minimum proof-of-concept covering at least one target platform (web was chosen).
+
 # AUTOPILOT — MVP Build Specification
 
 **Autonomous black-box web journey agent with a deterministic safety gate and a full evidence trail.**

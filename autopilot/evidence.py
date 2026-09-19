@@ -34,7 +34,7 @@ class EvidenceCollector:
 
     def _flush_trace(self) -> None:
         trace_path = self.run_dir / "trace.jsonl"
-        with open(trace_path, "a") as f:
+        with open(trace_path, "a", encoding="utf-8") as f:
             f.write(self.steps[-1].model_dump_json() + "\n")
 
     def add_finding(self, finding: Finding) -> None:
@@ -65,11 +65,11 @@ class EvidenceCollector:
             total_tokens=self.total_tokens,
             step_count=self.step_count,
         )
-        with open(self.run_dir / "manifest.json", "w") as f:
+        with open(self.run_dir / "manifest.json", "w", encoding="utf-8") as f:
             json.dump(json.loads(manifest.model_dump_json()), f, indent=2, default=str)
 
     def _write_findings(self) -> None:
-        with open(self.run_dir / "findings.json", "w") as f:
+        with open(self.run_dir / "findings.json", "w", encoding="utf-8") as f:
             json.dump([f.model_dump() for f in self.findings], f, indent=2, default=str)
 
 
