@@ -7,72 +7,22 @@ from typing import Any, Optional
 
 import yaml
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field
+
+from .types import (
+    BrowserConfig,
+    BudgetsConfig,
+    Config,
+    PerceptionConfig,
+    PolicyConfig,
+    Profile,
+    Scenario,
+    StabilizationConfig,
+)
 
 
 # Load .env from project root
-PROJECT_ROOT = Path(__file__).parent.parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent
 load_dotenv(PROJECT_ROOT / ".env")
-
-
-class BrowserConfig(BaseModel):
-    headless: bool = False
-    viewport: dict[str, int] = Field(default_factory=lambda: {"width": 1280, "height": 800})
-    locale: str = "en-US"
-    timezone: str = "Asia/Kolkata"
-    slow_mo_ms: int = 120
-
-
-class BudgetsConfig(BaseModel):
-    max_steps: int = 25
-    max_wall_clock_s: int = 300
-    max_total_input_tokens: int = 400000
-    step_timeout_s: int = 30
-
-
-class StabilizationConfig(BaseModel):
-    quiet_ms: int = 400
-    max_wait_ms: int = 6000
-    post_action_settle_ms: int = 150
-
-
-class PerceptionConfig(BaseModel):
-    max_elements: int = 120
-    screenshot_scale: float = 0.75
-
-
-class PolicyConfig(BaseModel):
-    domain_allowlist: list[str] = Field(default_factory=list)
-    blocked_classes: list[str] = Field(
-        default_factory=lambda: ["payment", "destructive", "external_comms", "account_change"]
-    )
-    allow_dialog_accept: bool = False
-
-
-class Profile(BaseModel):
-    name: str
-    model: str
-    api_key: str
-
-
-class Scenario(BaseModel):
-    name: str
-    goal: str
-    start_url: str
-    policy: Optional[PolicyConfig] = None
-    budgets: Optional[BudgetsConfig] = None
-    secrets: dict[str, str] = Field(default_factory=dict)
-
-
-class Config(BaseModel):
-    browser: BrowserConfig
-    budgets: BudgetsConfig
-    stabilization: StabilizationConfig
-    perception: PerceptionConfig
-    policy: PolicyConfig
-
-
-load_dotenv()
 
 DEFAULT_CONFIG_PATH = Path(__file__).parent.parent / "config" / "default.yaml"
 
@@ -134,6 +84,7 @@ def merge_config(default: Config, scenario: Scenario | None) -> Config:
         stabilization=default.stabilization,
         perception=default.perception,
         policy=policy,
+        secrets=scenario.secrets if scenario else {},
     )
 
 

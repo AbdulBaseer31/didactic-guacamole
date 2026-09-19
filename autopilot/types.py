@@ -58,6 +58,7 @@ class Config(BaseModel):
     stabilization: StabilizationConfig
     perception: PerceptionConfig
     policy: PolicyConfig
+    secrets: dict[str, str] = Field(default_factory=dict)
 
 
 class Element(BaseModel):

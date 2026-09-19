@@ -124,11 +124,11 @@ class BrowserManager:
 
     def draw_marks(self) -> None:
         mark_js = Path(__file__).parent.joinpath("js", "mark.js").read_text()
-        self.page.evaluate(mark_js + "\ndraw();")
+        self.page.evaluate(mark_js)
+        self.page.evaluate("window.uixDraw();")
 
     def clear_marks(self) -> None:
-        mark_js = Path(__file__).parent.joinpath("js", "mark.js").read_text()
-        self.page.evaluate(mark_js + "\nclear();")
+        self.page.evaluate("window.uixClear();")
 
     def screenshot(self, path: Path, scale: float = 0.75) -> None:
         self.page.screenshot(path=str(path), scale="css" if scale == 1.0 else "device")
