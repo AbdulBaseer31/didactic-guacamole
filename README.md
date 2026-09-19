@@ -16,16 +16,16 @@ cp .env.example .env  # add your Anthropic API keys
 
 ```bash
 # Commerce checkout (saucedemo)
-python -m autopilot run --scenario config/scenarios/saucedemo.yaml
+python -m autopilot run --scenario config/scenarios/saucedemo.yaml --profile primary
 
 # Search & navigate (DuckDuckGo -> playwright.dev)
-python -m autopilot run --scenario config/scenarios/search.yaml
+python -m autopilot run --scenario config/scenarios/search.yaml --profile primary
 
 # YouTube transcript (lyric jump)
-python -m autopilot run --scenario config/scenarios/youtube.yaml
+python -m autopilot run --scenario config/scenarios/youtube.yaml --profile primary
 
 # Validate API key only
-python -m autopilot --validate-only --profile primary
+python -m autopilot --validate-only --profile primary --profile primary
 ```
 
 ## Output
