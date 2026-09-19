@@ -1,0 +1,4 @@
+name: adhoc_play-human-by-rag-n-bone-man-on-youtube
+goal: Play Human by Rag'N'Bone man on Youtube
+start_url: https://www.youtube.com
+secrets: {}

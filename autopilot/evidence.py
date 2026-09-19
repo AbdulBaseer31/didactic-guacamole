@@ -35,8 +35,7 @@ class EvidenceCollector:
     def _flush_trace(self) -> None:
         trace_path = self.run_dir / "trace.jsonl"
         with open(trace_path, "a") as f:
-            for record in self.steps:
-                f.write(record.model_dump_json() + "\n")
+            f.write(self.steps[-1].model_dump_json() + "\n")
 
     def add_finding(self, finding: Finding) -> None:
         self.findings.append(finding)

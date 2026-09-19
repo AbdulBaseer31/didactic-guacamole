@@ -11,3 +11,10 @@ htmlcov/
 .venv/
 venv/
 *.lock.txt
+Modelratecsv.csv
+Live/
+Prag2yan/
+node_modules/
+.next/
+FRONTEND_DETAIL.txt
+FRONTEND_RULES.md

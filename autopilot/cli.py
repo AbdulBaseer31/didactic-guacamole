@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 import time
@@ -55,6 +56,9 @@ def build_parser() -> argparse.ArgumentParser:
     interactive_parser.add_argument("--profile", help="API profile to use (cosmetic only for now)")
     interactive_parser.add_argument("--no-open", action="store_true", help="Don't open report.html")
 
+    serve_parser = subparsers.add_parser("serve", help="Launch the local web dashboard (FastAPI + frontend)")
+    serve_parser.add_argument("--port", type=int, default=8050, help="Port to serve on (default 8050)")
+
     return parser
 
 
@@ -68,6 +72,8 @@ def main(argv: list[str] | None = None) -> int:
         return observe_command(args)
     elif args.command == "interactive":
         return interactive_command(args)
+    elif args.command == "serve":
+        return serve_command(args)
 
     return 0
 
@@ -360,7 +366,17 @@ def run_command(args: argparse.Namespace) -> int:
     return 0
 
 
+INTERACTIVE_MAX_STEPS = 12
+
+
 def interactive_command(args: argparse.Namespace) -> int:
+    if not os.getenv("GEMINI_API_KEY"):
+        print(
+            "No Gemini API key found - add GEMINI_API_KEY to your .env file and try again.",
+            file=sys.stderr,
+        )
+        return 1
+
     goal = input("Define your goal: ").strip()
     start_url = input("Define your website: ").strip()
 
@@ -400,7 +416,13 @@ def interactive_command(args: argparse.Namespace) -> int:
         "browser": config.browser.model_copy(update={
             "headless": False,
             "slow_mo_ms": max(config.browser.slow_mo_ms, 150),
-        })
+        }),
+        # A user-typed goal is more open-ended/exploratory than a curated
+        # scenario file, so cap its worst-case Gemini call count tighter than
+        # the shared default.
+        "budgets": config.budgets.model_copy(update={
+            "max_steps": min(config.budgets.max_steps, INTERACTIVE_MAX_STEPS),
+        }),
     })
 
     print(f"Goal: {goal}")
@@ -455,6 +477,15 @@ def interactive_command(args: argparse.Namespace) -> int:
         no_open=getattr(args, "no_open", False),
     )
     print(humanize_outcome(evidence.outcome))
+    return 0
+
+
+def serve_command(args: argparse.Namespace) -> int:
+    import uvicorn
+    from .webapp import app
+
+    print(f"Dashboard: http://127.0.0.1:{args.port}/autopilot_home_dashboard/code.html")
+    uvicorn.run(app, host="127.0.0.1", port=args.port)
     return 0
 
 
