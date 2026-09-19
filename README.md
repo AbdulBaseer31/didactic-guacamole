@@ -17,7 +17,19 @@ cp .env.example .env
 ```
 
 Open .env file and add gemini api key in api key
-## Run Demo
+
+
+## Run Frontend
+
+```bash
+
+#Start frontend server
+python -m autopilot serve --port 8050
+
+```
+
+
+## Run Demo (Alternative to Frontend)
 
 ```bash
 # Commerce checkout (saucedemo)
