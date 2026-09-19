@@ -5,7 +5,8 @@ Autonomous web journey agent with deterministic safety gate and evidence trail.
 ## Quick Start
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
+python -m venv .venv 
+.venv/scripts/activate
 pip install -r requirements.txt
 playwright install chromium
 cp .env.example .env  # add your Anthropic API keys
