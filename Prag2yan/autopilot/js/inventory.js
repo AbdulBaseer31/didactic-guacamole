@@ -20,8 +20,15 @@
            r.right > -50 && r.left < innerWidth + 50;
   };
 
-  const TAG_ROLE = {A:'link', BUTTON:'button', SELECT:'combobox',
-                    TEXTAREA:'textbox', SUMMARY:'button'};
+const TAG_ROLE = {A:'link', BUTTON:'button', SELECT:'combobox',
+                     TEXTAREA:'textbox', SUMMARY:'button'};
+
+  const getA11yAttrs = el => ({
+    tabindex: el.getAttribute('tabindex'),
+    alt: el.getAttribute('alt'),
+    aria_label: el.getAttribute('aria-label'),
+    aria_labelledby: el.getAttribute('aria-labelledby'),
+  });
 
   const roleOf = el => {
     const explicit = el.getAttribute('role');
@@ -96,6 +103,7 @@
     el.setAttribute('data-uix', String(n));
     const r = el.getBoundingClientRect();
     const isTextish = el.tagName === 'INPUT' || el.tagName === 'TEXTAREA';
+    const a11y = getA11yAttrs(el);
     out.push({
       uix: n,
       role: roleOf(el),
@@ -111,11 +119,10 @@
       path: cssPath(el),
       box: [Math.round(r.x), Math.round(r.y),
             Math.round(r.width), Math.round(r.height)],
-      tabindex: el.getAttribute('tabindex'),
-      alt: el.getAttribute('alt'),
-      aria_label: el.getAttribute('aria-label'),
-      aria_labelledby: el.getAttribute('aria-labelledby'),
-      labels: (el.labels && el.labels.length) ? Array.from(el.labels).map(l => l.innerText || l.getAttribute('id') || '') : null,
+      tabindex: a11y.tabindex,
+      alt: a11y.alt,
+      aria_label: a11y.aria_label,
+      aria_labelledby: a11y.aria_labelledby,
     });
   }
 

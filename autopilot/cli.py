@@ -3,10 +3,12 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+import json
+import webbrowser
 from pathlib import Path
 
-from .config import Config, load_config, resolve_profile, validate_api_key
-from .types import StepRecord, Observation, ProposedAction, ValidatedAction, TargetDescriptor, Element, Finding, RunManifest
+from .config import Config, load_config, resolve_profile, validate_api_key, load_scenario
+from .types import RunManifest, StepRecord, Observation, Finding
 from .browser import create_browser_manager
 from .perception import Perception
 from .planner import create_planner
@@ -14,6 +16,8 @@ from .resolver import create_resolver
 from .policy import create_policy_gate
 from .executor import create_executor
 from .evidence import create_run_dir, create_evidence_collector
+from .findings import collect_all_findings
+from .report import generate_report
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -47,6 +51,35 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
+def finalize_run(
+    run_dir: Path,
+    manifest: RunManifest,
+    step_records: list[StepRecord],
+    observations: list[Observation],
+    config: Config,
+    profile_name: str,
+    model_id: str,
+    no_open: bool = False
+) -> Path:
+    """Generate findings and report, return report path."""
+    findings = collect_all_findings(step_records, observations)
+    
+    # Write findings.json
+    findings_path = run_dir / "findings.json"
+    findings_data = [f.model_dump() for f in findings]
+    findings_path.write_text(json.dumps(findings_data, indent=2, default=str))
+    
+    # Generate report
+    report_path = generate_report(run_dir, manifest, step_records, findings, config, profile_name, model_id)
+    
+    print(f"Report: file://{report_path.absolute()}")
+    
+    if not no_open:
+        webbrowser.open(f"file://{report_path.absolute()}")
+    
+    return report_path
+
+
 def run_command(args: argparse.Namespace) -> int:
     profile = resolve_profile(args.profile)
 
@@ -69,7 +102,6 @@ def run_command(args: argparse.Namespace) -> int:
     # Get scenario for goal/start_url/secrets
     scenario = None
     if args.scenario:
-        from .config import load_scenario
         scenario = load_scenario(Path(args.scenario))
 
     goal = scenario.goal if scenario else (args.goal or "")
@@ -102,19 +134,24 @@ def run_command(args: argparse.Namespace) -> int:
     max_wall_clock_ms = config.budgets.max_wall_clock_s * 1000
     max_steps = config.budgets.max_steps
 
+    # Collect observations for findings
+    all_observations = []
+    all_step_records = []
+
     with create_browser_manager(config) as browser:
         perception = Perception(browser, config)
 
         # Initial observation - navigate to start URL first
         obs = perception.observe(0, start_url)
         prev_state_hash = obs.state_hash
+        all_observations.append(obs)
 
         for step in range(1, max_steps + 1):
             # Check wall clock budget
             if (time.time() - start_time) * 1000 > max_wall_clock_ms:
                 print("Wall clock budget exceeded")
                 evidence.finalize("budget_exhausted")
-                return 0
+                break
 
             # Get action from planner
             proposed = planner.propose_action(obs, goal)
@@ -153,6 +190,7 @@ def run_command(args: argparse.Namespace) -> int:
 
             # Capture after observation
             after_obs = perception.capture_step_observation(step)
+            all_observations.append(after_obs)
             
             # Take after screenshot
             browser.screenshot(run_dir / "steps" / after_name, config.perception.screenshot_scale)
@@ -178,11 +216,10 @@ def run_command(args: argparse.Namespace) -> int:
 
             if same_state_count >= 3:
                 print(f"Stuck loop detected (same state {same_state_count}x)")
-                # Could inject a note to planner here
             if same_state_count >= 5:
                 print("Aborting: stuck loop")
                 evidence.finalize("stuck_loop")
-                return 0
+                break
 
             # Record step
             record = StepRecord(
@@ -200,6 +237,7 @@ def run_command(args: argparse.Namespace) -> int:
                 transition=transition,
             )
             evidence.add_step(record)
+            all_step_records.append(record)
 
             print(f"Step {step}: {proposed.type} uix={proposed.uix} - {transition} - {'OK' if executed else 'BLOCKED/FAILED'}")
 
@@ -211,14 +249,13 @@ def run_command(args: argparse.Namespace) -> int:
                 else:
                     print("Goal failed")
                     evidence.finalize("failed")
-                return 0
+                break
 
             # Update observation for next step
             obs = after_obs
 
             # Check for 3 no-change in a row
             if no_change_count >= 3:
-                from .types import Finding
                 finding = Finding(
                     finding_id=f"ux_friction_no_change_{step}",
                     category="ux_friction",
@@ -229,8 +266,38 @@ def run_command(args: argparse.Namespace) -> int:
                 )
                 evidence.add_finding(finding)
                 no_change_count = 0
+        else:
+            evidence.finalize("max_steps_reached")
 
-    evidence.finalize("max_steps_reached")
+    # Generate findings and report
+    print("Generating report...")
+    finalize_run(
+        run_dir=run_dir,
+        manifest=RunManifest(
+            run_id=run_dir.name,
+            goal=goal,
+            start_url=start_url,
+            profile_name=profile.name,
+            model_id=profile.model,
+            browser_version="chromium-153",
+            viewport=config.browser.viewport,
+            locale=config.browser.locale,
+            timezone=config.browser.timezone,
+            config_snapshot=config.model_dump(),
+            policy_snapshot=config.policy.model_dump(),
+            start_time=__import__("datetime").datetime.fromtimestamp(start_time),
+            end_time=__import__("datetime").datetime.now(),
+            outcome=evidence.outcome,
+            total_tokens=evidence.total_tokens,
+            step_count=evidence.step_count,
+        ),
+        step_records=all_step_records,
+        observations=all_observations,
+        config=config,
+        profile_name=profile.name,
+        model_id=profile.model,
+        no_open=args.no_open
+    )
     return 0
 
 

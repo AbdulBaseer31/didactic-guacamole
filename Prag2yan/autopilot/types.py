@@ -58,7 +58,6 @@ class Config(BaseModel):
     stabilization: StabilizationConfig
     perception: PerceptionConfig
     policy: PolicyConfig
-    secrets: dict[str, str] = Field(default_factory=dict)
 
 
 class Element(BaseModel):
@@ -79,7 +78,6 @@ class Element(BaseModel):
     alt: Optional[str] = None
     aria_label: Optional[str] = None
     aria_labelledby: Optional[str] = None
-    labels: Optional[list[str]] = None
 
 
 class Observation(BaseModel):

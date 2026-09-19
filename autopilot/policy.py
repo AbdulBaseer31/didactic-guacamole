@@ -21,7 +21,8 @@ class PolicyGate:
             return "data_entry"
         if action.type == "click" and element:
             href = element.href
-            if href and any(kw in (element.name + " " + (href or "")).lower() for kw in ["pay", "place order", "buy now", "purchase", "complete purchase", "subscribe", "checkout"]):
+            name_href = (element.name + " " + (href or "")).lower()
+            if any(kw in name_href for kw in ["pay", "place order", "buy now", "purchase", "complete purchase", "subscribe", "checkout"]):
                 return "payment"
             if any(kw in element.name.lower() for kw in ["delete", "remove account", "deactivate", "close account", "erase", "wipe", "permanently"]):
                 return "destructive"
@@ -29,7 +30,7 @@ class PolicyGate:
                 return "external_comms"
             if any(kw in element.name.lower() for kw in ["change password", "update email", "security settings", "privacy settings", "2fa"]):
                 return "account_change"
-            if href and not any(href.startswith(f"https://{d}") or href.startswith(f"http://{d}") for d in self.domain_allowlist):
+            if href:
                 return "navigation"
             return "observation"
         return "observation"
@@ -51,11 +52,17 @@ class PolicyGate:
             decision = "block"
             block_reason = f"Action class '{action_class}' is blocked"
         
-        # Check domain allowlist for navigation
-        if action_class == "navigation" and action.type == "click" and element and element.href:
-            if self.domain_allowlist and not any(element.href.startswith(f"https://{d}") or element.href.startswith(f"http://{d}") for d in self.domain_allowlist):
+        # Check domain allowlist for navigation (click or goto)
+        if action_class == "navigation":
+            target_href = None
+            if action.type == "click" and element and element.href:
+                target_href = element.href
+            elif action.type == "goto" and action.url:
+                target_href = action.url
+            
+            if target_href and self.domain_allowlist and not any(target_href.startswith(f"https://{d}") or target_href.startswith(f"http://{d}") for d in self.domain_allowlist):
                 decision = "block"
-                block_reason = f"Navigation to {element.href} not in allowlist"
+                block_reason = f"Navigation to {target_href} not in allowlist"
         
         # Check secrets
         secret_error = self.check_secrets(action)
