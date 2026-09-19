@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Autopilot Run Console</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        line-height: 1.6;
+        color: #1a1a2e;
+        background: #f8f9fa;
+    }
+    .container { max-width: 960px; margin: 0 auto; padding: 32px 24px 64px; }
+
+    header { margin-bottom: 24px; }
+    .eyebrow { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+    h1 { font-size: 1.75rem; font-weight: 600; margin-top: 8px; }
+    .subtitle { color: #52525b; margin-top: 8px; max-width: 640px; font-size: 0.95rem; }
+
+    .card { background: #fff; border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .card h2 { font-size: 1.05rem; font-weight: 600; margin-bottom: 16px; }
+
+    .button-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+    .test-btn {
+        display: flex; flex-direction: column; gap: 4px; align-items: flex-start;
+        padding: 16px; border-radius: 8px; border: 1px solid #e5e7eb; background: #fafafa;
+        cursor: pointer; text-align: left; font-family: inherit; transition: border-color 0.15s, background 0.15s;
+    }
+    .test-btn:hover:not(:disabled) { border-color: #e5007d; background: #fff; }
+    .test-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .test-btn .btn-title { font-weight: 600; font-size: 0.95rem; }
+    .test-btn .btn-desc { font-size: 0.8rem; color: #6b7280; }
+    .test-btn .btn-domain { font-size: 0.75rem; color: #9ca3af; font-family: 'Courier New', monospace; margin-top: 4px; }
+
+    .custom-form { display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb; }
+    .custom-form.open { display: block; }
+    .field { margin-bottom: 12px; }
+    .field label { display: block; font-size: 0.8rem; font-weight: 600; color: #374151; margin-bottom: 4px; }
+    .field input {
+        width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid #d1d5db;
+        font-size: 0.9rem; font-family: inherit;
+    }
+    .field input:focus { outline: none; border-color: #e5007d; }
+    .run-custom-btn {
+        padding: 10px 20px; border-radius: 6px; border: none; background: #e5007d; color: #fff;
+        font-weight: 600; font-size: 0.85rem; cursor: pointer; font-family: inherit;
+    }
+    .run-custom-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .status-card { min-height: 120px; }
+    .status-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 16px; color: #9ca3af; text-align: center; }
+    .status-empty .dot { width: 48px; height: 48px; border-radius: 50%; background: #f3f4f6; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; margin-bottom: 12px; }
+
+    .status-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .status-label { font-weight: 600; }
+    .badge { padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .badge-running { background: #e3f2fd; color: #1565c0; }
+    .badge-success { background: #e8f5e9; color: #2e7d32; }
+    .badge-failed { background: #fce4ec; color: #c62828; }
+    .badge-error { background: #fce4ec; color: #c62828; }
+    .badge-budget_exhausted { background: #e3f2fd; color: #1565c0; }
+    .badge-stuck_loop { background: #f3e5f5; color: #7b1fa2; }
+    .badge-max_steps_reached { background: #f3e5f5; color: #7b1fa2; }
+    .badge-unknown { background: #eceff1; color: #455a64; }
+
+    .log-box {
+        background: #1a1a2e; color: #d1d5db; font-family: 'Courier New', monospace; font-size: 0.78rem;
+        border-radius: 8px; padding: 12px; max-height: 260px; overflow-y: auto; white-space: pre-wrap; word-break: break-word;
+    }
+    .log-box .line { padding: 1px 0; }
+
+    .actions-row { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+    .link-btn {
+        display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px;
+        border: 1px solid #d1d5db; background: #fff; color: #1a1a2e; text-decoration: none; font-size: 0.85rem; font-weight: 600;
+    }
+    .link-btn.primary { background: #e5007d; border-color: #e5007d; color: #fff; }
+
+    .error-banner { background: #fce4ec; color: #c62828; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <div class="eyebrow">Autopilot</div>
+        <h1>Run Console</h1>
+        <p class="subtitle">Launch the exact same <code>python -m autopilot</code> commands you'd run from a terminal, from a button instead.</p>
+    </header>
+
+    <div id="error-banner"></div>
+
+    <div class="card">
+        <h2>Run a test</h2>
+        <div class="button-grid" id="button-grid">
+            <button class="test-btn" data-key="saucedemo" onclick="runScenario('saucedemo')">
+                <span class="btn-title">Commerce Checkout</span>
+                <span class="btn-desc">Log in, add to cart, complete checkout on SauceDemo.</span>
+                <span class="btn-domain">saucedemo.com &middot; scripted planner</span>
+            </button>
+            <button class="test-btn" data-key="search" onclick="runScenario('search')">
+                <span class="btn-title">Search &amp; Navigate</span>
+                <span class="btn-desc">Search for the Playwright docs, open the official playwright.dev site.</span>
+                <span class="btn-domain">google.com, playwright.dev &middot; AI planner</span>
+            </button>
+            <button class="test-btn" data-key="youtube" onclick="runScenario('youtube')">
+                <span class="btn-title">YouTube Transcript</span>
+                <span class="btn-desc">Find a line in the transcript and jump the player there.</span>
+                <span class="btn-domain">youtube.com &middot; AI planner</span>
+            </button>
+            <button class="test-btn" id="others-toggle" data-key="others" onclick="toggleCustomForm()">
+                <span class="btn-title">Others&hellip;</span>
+                <span class="btn-desc">Type your own goal and target URL.</span>
+                <span class="btn-domain">any domain you allow &middot; AI planner</span>
+            </button>
+        </div>
+
+        <div class="custom-form" id="custom-form">
+            <div class="field">
+                <label for="goal-input">Goal</label>
+                <input id="goal-input" type="text" placeholder="e.g. Add a laptop to the cart and reach checkout" value="Add a laptop to the cart and reach the checkout page">
+            </div>
+            <div class="field">
+                <label for="url-input">Start URL</label>
+                <input id="url-input" type="url" placeholder="https://example.com" value="https://www.saucedemo.com">
+            </div>
+            <button class="run-custom-btn" id="run-custom-btn" onclick="runCustom()">Run this test</button>
+        </div>
+    </div>
+
+    <div class="card status-card" id="status-card">
+        <div class="status-empty" id="status-empty">
+            <div class="dot">&#9679;</div>
+            <p style="font-weight: 600; color: #374151;">No run started yet</p>
+            <p style="max-width: 320px; margin-top: 4px; font-size: 0.85rem;">Pick a test above, or use "Others" to describe your own goal and target URL.</p>
+        </div>
+
+        <div id="status-active" style="display: none;">
+            <div class="status-row">
+                <span class="status-label" id="status-label"></span>
+                <span class="badge" id="status-badge"></span>
+            </div>
+            <div class="log-box" id="log-box"></div>
+            <div class="actions-row" id="actions-row"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var pollTimer = null;
+    var allButtons = function () { return document.querySelectorAll('.test-btn, .run-custom-btn'); };
+
+    function esc(s) {
+        return (s == null ? '' : String(s)).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+
+    function setButtonsDisabled(disabled) {
+        allButtons().forEach(function (b) { b.disabled = disabled; });
+    }
+
+    function showError(message) {
+        var banner = document.getElementById('error-banner');
+        banner.innerHTML = message ? '<div class="error-banner">' + esc(message) + '</div>' : '';
+    }
+
+    function toggleCustomForm() {
+        document.getElementById('custom-form').classList.toggle('open');
+    }
+    window.toggleCustomForm = toggleCustomForm;
+
+    function outcomeLabel(status) {
+        return {
+            running: 'Running',
+            success: 'Finished successfully',
+            failed: 'Could not finish the goal',
+            error: 'Aborted on an unexpected error',
+            stuck_loop: 'Stopped automatically (repeated action)',
+            budget_exhausted: 'Stopped automatically (ran out of time)',
+            max_steps_reached: 'Stopped (reached the step limit)'
+        }[status] || status;
+    }
+
+    function renderLog(job) {
+        var logBox = document.getElementById('log-box');
+        logBox.innerHTML = job.log_tail.map(function (line) {
+            return '<div class="line">' + esc(line) + '</div>';
+        }).join('');
+        logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    // While running, the job's own status ("running") is all there is. Once
+    // the process exits, the exit code alone can't tell "goal achieved" from
+    // "ran out of budget" from "stuck loop" - all of those exit 0. The real
+    // outcome autopilot recorded lives in that run's manifest.json, so fetch
+    // it via the existing /api/runs/{run_id} endpoint rather than scraping
+    // log text for it.
+    function renderJob(job, resolvedOutcome) {
+        document.getElementById('status-empty').style.display = 'none';
+        document.getElementById('status-active').style.display = 'block';
+        document.getElementById('status-label').textContent = job.label || 'Run';
+
+        var running = job.status === 'running';
+        var badgeStatus = running ? 'running' : (resolvedOutcome || job.status);
+        var badge = document.getElementById('status-badge');
+        badge.className = 'badge badge-' + (badgeStatus || 'unknown');
+        badge.textContent = running ? 'Running…' : outcomeLabel(badgeStatus);
+
+        renderLog(job);
+
+        var actions = document.getElementById('actions-row');
+        actions.innerHTML = '';
+        if (!running) {
+            if (job.report_url) {
+                var reportLink = document.createElement('a');
+                reportLink.className = 'link-btn primary';
+                reportLink.href = job.report_url;
+                reportLink.target = '_blank';
+                reportLink.textContent = 'View full report';
+                actions.appendChild(reportLink);
+            }
+            var resetBtn = document.createElement('button');
+            resetBtn.className = 'link-btn';
+            resetBtn.textContent = 'Run another test';
+            resetBtn.onclick = resetStatus;
+            actions.appendChild(resetBtn);
+        }
+    }
+
+    function finishJob(job) {
+        if (!job.run_id) {
+            renderJob(job, job.status === 'succeeded' ? 'success' : 'failed');
+            return;
+        }
+        fetch('/api/runs/' + encodeURIComponent(job.run_id))
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (data) {
+                var outcome = data && data.summary ? data.summary.outcome : null;
+                renderJob(job, outcome || (job.status === 'succeeded' ? 'success' : 'failed'));
+            })
+            .catch(function () {
+                renderJob(job, job.status === 'succeeded' ? 'success' : 'failed');
+            });
+    }
+
+    function resetStatus() {
+        document.getElementById('status-active').style.display = 'none';
+        document.getElementById('status-empty').style.display = 'flex';
+        showError(null);
+    }
+    window.resetStatus = resetStatus;
+
+    function pollJob(jobId) {
+        if (pollTimer) clearInterval(pollTimer);
+        pollTimer = setInterval(function () {
+            fetch('/api/jobs/' + jobId).then(function (r) { return r.json(); }).then(function (job) {
+                if (job.status === 'running') {
+                    renderJob(job, null);
+                    return;
+                }
+                clearInterval(pollTimer);
+                pollTimer = null;
+                setButtonsDisabled(false);
+                finishJob(job);
+            }).catch(function () {
+                clearInterval(pollTimer);
+                pollTimer = null;
+                setButtonsDisabled(false);
+            });
+        }, 1500);
+    }
+
+    function startJob(promise) {
+        showError(null);
+        setButtonsDisabled(true);
+        promise.then(function (r) {
+            if (!r.ok) {
+                return r.json().then(function (body) { throw new Error(body.detail || 'Failed to start run'); });
+            }
+            return r.json();
+        }).then(function (data) {
+            pollJob(data.job_id);
+        }).catch(function (err) {
+            setButtonsDisabled(false);
+            showError(err.message || String(err));
+        });
+    }
+
+    function runScenario(key) {
+        startJob(fetch('/api/run/scenario/' + encodeURIComponent(key), { method: 'POST' }));
+    }
+    window.runScenario = runScenario;
+
+    function runCustom() {
+        var goal = document.getElementById('goal-input').value.trim();
+        var url = document.getElementById('url-input').value.trim();
+        if (!goal || !url) {
+            showError('Both a goal and a start URL are required.');
+            return;
+        }
+        startJob(fetch('/api/run/custom', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ goal: goal, url: url })
+        }));
+    }
+    window.runCustom = runCustom;
+})();
+</script>
+</body>
+</html>

@@ -45,6 +45,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--validate-only", action="store_true", help="Validate API key and exit")
     run_parser.add_argument("--no-open", action="store_true", help="Don't open report.html")
     run_parser.add_argument("--live", action="store_true", help="Force a visible browser window (overrides config/default.yaml's headless setting) so you can watch the run")
+    run_parser.add_argument("--ai", action="store_true", help="Use the free-form Gemini planner instead of the scripted demo planner (required for any scenario other than saucedemo)")
 
     observe_parser = subparsers.add_parser("observe", help="Observe a page and capture elements")
     observe_parser.add_argument("--url", required=True, help="URL to observe")
@@ -55,6 +56,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     interactive_parser.add_argument("--profile", help="API profile to use (cosmetic only for now)")
     interactive_parser.add_argument("--no-open", action="store_true", help="Don't open report.html")
+    interactive_parser.add_argument("--goal", help="Goal (skips the interactive prompt when provided)")
+    interactive_parser.add_argument("--url", help="Start URL (skips the interactive prompt when provided)")
 
     serve_parser = subparsers.add_parser("serve", help="Launch the local web dashboard (FastAPI + frontend)")
     serve_parser.add_argument("--port", type=int, default=8050, help="Port to serve on (default 8050)")
@@ -329,8 +332,10 @@ def run_command(args: argparse.Namespace) -> int:
     # Create evidence collector
     evidence = create_evidence_collector(run_dir, config, profile.name, profile.model, goal, start_url)
 
-    # Create components
-    planner = create_planner()
+    # Create components. The scripted planner only knows the saucedemo
+    # checkout flow - any other scenario needs the free-form Gemini planner
+    # via --ai.
+    planner = create_ai_planner() if getattr(args, "ai", False) else create_planner()
     resolver = create_resolver()
     policy_gate = create_policy_gate(config)
     executor = create_executor(config)
@@ -386,8 +391,8 @@ def interactive_command(args: argparse.Namespace) -> int:
         )
         return 1
 
-    goal = input("Define your goal: ").strip()
-    start_url = input("Define your website: ").strip()
+    goal = (getattr(args, "goal", None) or "").strip() or input("Define your goal: ").strip()
+    start_url = (getattr(args, "url", None) or "").strip() or input("Define your website: ").strip()
 
     if not goal or not start_url:
         print("Both a goal and a website are required.", file=sys.stderr)

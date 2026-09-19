@@ -1,0 +1,4 @@
+name: adhoc_buy-black-shoes-under-2k
+goal: Buy black shoes under 2k
+start_url: https://www.amazon.in
+secrets: {}

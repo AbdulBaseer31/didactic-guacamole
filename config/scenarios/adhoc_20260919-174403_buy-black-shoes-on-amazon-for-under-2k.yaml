@@ -1,0 +1,4 @@
+name: adhoc_buy-black-shoes-on-amazon-for-under-2k
+goal: Buy black shoes on amazon for under 2k
+start_url: https://www.amazon.in
+secrets: {}

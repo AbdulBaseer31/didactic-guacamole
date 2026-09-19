@@ -148,7 +148,11 @@ class BrowserManager:
         self.page.evaluate("window.uixDraw();")
 
     def clear_marks(self) -> None:
-        self.page.evaluate("window.uixClear();")
+        # mark.js is only re-injected by draw_marks() on the page it's called
+        # on - if the step's action navigated to a new document since then,
+        # window.uixClear won't exist there. Guard so this stays a safe no-op
+        # instead of crashing the run.
+        self.page.evaluate("if (window.uixClear) window.uixClear();")
 
     def screenshot(self, path: Path, scale: float = 0.75) -> None:
         self.page.screenshot(path=str(path), scale="css" if scale == 1.0 else "device")

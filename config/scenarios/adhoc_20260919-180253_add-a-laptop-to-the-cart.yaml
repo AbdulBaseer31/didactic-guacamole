@@ -1,0 +1,4 @@
+name: adhoc_add-a-laptop-to-the-cart
+goal: Add a laptop to the cart
+start_url: https://www.amazon.in
+secrets: {}
