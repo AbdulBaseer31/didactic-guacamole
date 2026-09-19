@@ -9,7 +9,7 @@ git init
 git clone https://github.com/AbdulBaseer31/didactic-guacamole
 cd didactic-guacamole
 python -m venv .venv
-set-exectionpolicy unrestricted -scope process
+set-executionpolicy unrestricted -scope process
 .venv/scripts/activate
 pip install -r requirements.txt
 playwright install chromium
